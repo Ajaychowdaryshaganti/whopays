@@ -37,8 +37,8 @@ function App() {
   const [users, setUsers] = useState<User[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'transactions' | 'history'>('dashboard');
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear] = useState(new Date().getFullYear());
   const [suggestedBuyer, setSuggestedBuyer] = useState<User | null>(null);
   const [historyPeriod, setHistoryPeriod] = useState<'week' | 'month' | 'year'>('month');
 
