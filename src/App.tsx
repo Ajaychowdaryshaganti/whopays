@@ -40,6 +40,7 @@ function App() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [suggestedBuyer, setSuggestedBuyer] = useState<User | null>(null);
+  const [historyPeriod, setHistoryPeriod] = useState<'week' | 'month' | 'year'>('month');
   
   // New user form
   const [newUserName, setNewUserName] = useState('');
@@ -260,6 +261,60 @@ function App() {
       console.error('Failed to export summary:', error);
       alert('Failed to export monthly summary');
     }
+  };
+
+  const getFilteredTransactions = () => {
+    const now = new Date();
+    let startDate: Date;
+    if (historyPeriod === 'week') {
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 7);
+    } else if (historyPeriod === 'month') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else {
+      startDate = new Date(now.getFullYear(), 0, 1);
+    }
+    return transactions.filter(t => new Date(t.date) >= startDate);
+  };
+
+  const getSpendingBreakdown = () => {
+    const filtered = getFilteredTransactions();
+    const breakdown: Record<string, Record<string, number>> = {};
+
+    filtered.forEach(t => {
+      const buyerName = t.buyer.name;
+      if (!breakdown[buyerName]) breakdown[buyerName] = {};
+
+      t.participants.forEach(p => {
+        const participantName = p.name;
+        const pp = t.participantPrices?.find(pr => pr.user === p._id);
+        const share = pp ? pp.price : p.coffeePrice;
+        if (!breakdown[buyerName][participantName]) breakdown[buyerName][participantName] = 0;
+        breakdown[buyerName][participantName] += share;
+      });
+    });
+
+    return breakdown;
+  };
+
+  const getSpendingTotals = () => {
+    const breakdown = getSpendingBreakdown();
+    const totals: Record<string, { spent: number; received: number; net: number }> = {};
+
+    Object.entries(breakdown).forEach(([buyer, recipients]) => {
+      if (!totals[buyer]) totals[buyer] = { spent: 0, received: 0, net: 0 };
+      Object.entries(recipients).forEach(([recipient, amount]) => {
+        if (!totals[recipient]) totals[recipient] = { spent: 0, received: 0, net: 0 };
+        totals[buyer].spent += amount;
+        totals[recipient].received += amount;
+      });
+    });
+
+    Object.keys(totals).forEach(name => {
+      totals[name].net = totals[name].spent - totals[name].received;
+    });
+
+    return totals;
   };
 
   if (!unlocked) {
@@ -788,78 +843,164 @@ function App() {
         {/* History */}
         {activeTab === 'history' && (
           <div className="space-y-3">
+            {/* Period Toggle & Export */}
             <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
                   <span className="text-sm">📜</span>
                 </div>
-                <h2 className="text-sm font-semibold text-slate-700">Transaction History</h2>
+                <h2 className="text-sm font-semibold text-slate-700">Spending Breakdown</h2>
               </div>
-              <div className="flex gap-2 mb-3">
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                  className="flex-1 px-3 py-2 text-base bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
-                >
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>
-                      {new Date(0, i).toLocaleString('default', { month: 'long' })}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                  className="px-3 py-2 text-base bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
-                >
-                  {Array.from({ length: 5 }, (_, i) => (
-                    <option key={i} value={new Date().getFullYear() - i}>
-                      {new Date().getFullYear() - i}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex gap-1.5 mb-3">
+                {(['week', 'month', 'year'] as const).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setHistoryPeriod(p)}
+                    className={`flex-1 py-2 rounded-xl text-sm font-medium capitalize transition-all ${
+                      historyPeriod === p
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    {p === 'week' ? 'This Week' : p === 'month' ? 'This Month' : 'This Year'}
+                  </button>
+                ))}
               </div>
               <button
                 onClick={handleExportMonthlySummary}
-                className="w-full bg-slate-100 text-slate-700 py-2.5 rounded-xl active:bg-slate-200 transition-all font-medium text-sm mb-3 flex items-center justify-center gap-1.5"
+                className="w-full bg-slate-100 text-slate-700 py-2.5 rounded-xl active:bg-slate-200 transition-all font-medium text-sm flex items-center justify-center gap-1.5"
               >
                 <span>📥</span> Export CSV
               </button>
-              {transactions.length === 0 ? (
-                <p className="text-slate-400 text-sm py-2">No transactions yet</p>
-              ) : (
-                <div className="space-y-2">
-                  {transactions.map((transaction) => (
-                    <div key={transaction._id} className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-xs shrink-0">
-                            {transaction.buyer.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-slate-800">
-                              <span className="text-amber-600">{transaction.buyer.name}</span> bought
-                            </p>
-                            <p className="text-[11px] text-slate-400">
-                              {new Date(transaction.date).toLocaleDateString()} · {new Date(transaction.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0 ml-2">
-                          <p className="text-sm font-bold text-slate-800">${transaction.totalCost.toFixed(2)}</p>
-                          <p className="text-[11px] text-slate-400">${transaction.costPerPerson.toFixed(2)}/p</p>
-                        </div>
-                      </div>
-                      <div className="border-t border-slate-100 pt-2">
-                        <p className="text-xs text-slate-500 truncate">
-                          {transaction.participants.map(p => p.name).join(', ')}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
+
+            {/* Spending Breakdown Matrix */}
+            {(() => {
+              const breakdown = getSpendingBreakdown();
+              const allNames = Array.from(new Set([
+                ...Object.keys(breakdown),
+                ...Object.values(breakdown).flatMap(r => Object.keys(r))
+              ])).sort();
+              const totals = getSpendingTotals();
+              const filtered = getFilteredTransactions();
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+                    <p className="text-slate-400 text-sm py-2 text-center">No transactions in this period</p>
+                  </div>
+                );
+              }
+
+              return (
+                <>
+                  {/* Who spent on whom */}
+                  <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+                    <h3 className="text-xs font-semibold text-slate-500 mb-3">Who Spent On Whom</h3>
+                    <div className="space-y-3">
+                      {allNames.map(buyer => {
+                        const recipients = breakdown[buyer] || {};
+                        const recipientNames = Object.keys(recipients).sort();
+                        if (recipientNames.length === 0) return null;
+                        const totalSpent = Object.values(recipients).reduce((a, b) => a + b, 0);
+                        return (
+                          <div key={buyer} className="rounded-xl bg-slate-50/80 border border-slate-100 p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                                  {buyer.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="text-sm font-semibold text-slate-800">{buyer}</span>
+                              </div>
+                              <span className="text-sm font-bold text-slate-700">${totalSpent.toFixed(2)}</span>
+                            </div>
+                            <div className="space-y-1 pl-9">
+                              {recipientNames.map(recipient => (
+                                <div key={recipient} className="flex justify-between items-center text-xs">
+                                  <span className={recipient === buyer ? 'text-slate-400' : 'text-slate-600'}>
+                                    {recipient === buyer ? '🧑 (self)' : `→ ${recipient}`}
+                                  </span>
+                                  <span className={`font-medium ${recipient === buyer ? 'text-slate-400' : 'text-slate-700'}`}>
+                                    ${recipients[recipient].toFixed(2)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Totals Summary */}
+                  <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+                    <h3 className="text-xs font-semibold text-slate-500 mb-3">Summary</h3>
+                    <div className="space-y-2">
+                      {allNames.map(name => {
+                        const t = totals[name];
+                        if (!t) return null;
+                        return (
+                          <div key={name} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50/80 border border-slate-100">
+                            <span className="text-sm font-medium text-slate-700">{name}</span>
+                            <div className="flex items-center gap-3 text-xs">
+                              <div className="text-right">
+                                <p className="text-slate-400">Spent</p>
+                                <p className="font-semibold text-slate-700">${t.spent.toFixed(2)}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-slate-400">Received</p>
+                                <p className="font-semibold text-slate-700">${t.received.toFixed(2)}</p>
+                              </div>
+                              <div className="text-right min-w-[60px]">
+                                <p className="text-slate-400">Net</p>
+                                <p className={`font-bold ${t.net > 0 ? 'text-emerald-600' : t.net < 0 ? 'text-rose-500' : 'text-slate-400'}`}>
+                                  {t.net > 0 ? '+' : ''}${t.net.toFixed(2)}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Transaction List */}
+                  <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+                    <h3 className="text-xs font-semibold text-slate-500 mb-3">Transactions</h3>
+                    <div className="space-y-2">
+                      {filtered.map((transaction) => (
+                        <div key={transaction._id} className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                                {transaction.buyer.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-slate-800">
+                                  <span className="text-amber-600">{transaction.buyer.name}</span> bought
+                                </p>
+                                <p className="text-[11px] text-slate-400">
+                                  {new Date(transaction.date).toLocaleDateString()} · {new Date(transaction.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0 ml-2">
+                              <p className="text-sm font-bold text-slate-800">${transaction.totalCost.toFixed(2)}</p>
+                              <p className="text-[11px] text-slate-400">${transaction.costPerPerson.toFixed(2)}/p</p>
+                            </div>
+                          </div>
+                          <div className="border-t border-slate-100 pt-2">
+                            <p className="text-xs text-slate-500 truncate">
+                              {transaction.participants.map(p => p.name).join(', ')}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
       </div>

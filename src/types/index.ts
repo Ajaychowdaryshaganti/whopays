@@ -11,11 +11,17 @@ export interface User {
   createdAt: string;
 }
 
+export interface ParticipantPrice {
+  user: string;
+  price: number;
+}
+
 export interface Transaction {
   _id: string;
   date: string;
   buyer: User;
   participants: User[];
+  participantPrices?: ParticipantPrice[];
   totalCost: number;
   costPerPerson: number;
   description: string;

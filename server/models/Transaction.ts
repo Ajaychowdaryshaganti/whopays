@@ -16,6 +16,17 @@ const transactionSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   }],
+  participantPrices: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    price: {
+      type: Number,
+      required: true
+    }
+  }],
   totalCost: {
     type: Number,
     required: true

@@ -45,11 +45,14 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid buyer or participants' });
     }
 
-    // Calculate total cost based on each participant's coffee price or override
+    // Calculate total cost and per-participant prices based on coffee price or override
     let totalCost = 0;
+    const participantPrices: { user: string; price: number }[] = [];
     participantUsers.forEach(user => {
       const override = priceOverrides?.[user._id.toString()];
-      totalCost += override !== undefined ? override : user.coffeePrice;
+      const price = override !== undefined ? override : user.coffeePrice;
+      totalCost += price;
+      participantPrices.push({ user: user._id.toString(), price });
     });
 
     const costPerPerson = totalCost / participantUsers.length;
@@ -58,6 +61,7 @@ router.post('/', async (req, res) => {
     const transaction = new Transaction({
       buyer,
       participants,
+      participantPrices,
       totalCost,
       costPerPerson,
       description: description || 'Coffee run'
@@ -72,7 +76,9 @@ router.post('/', async (req, res) => {
 
     // Update each participant's balance and coffees drank
     for (const user of participantUsers) {
-      user.balance -= costPerPerson;
+      const pp = participantPrices.find(p => p.user === user._id.toString());
+      const individualPrice = pp ? pp.price : costPerPerson;
+      user.balance -= individualPrice;
       user.coffeesDrank += 1;
       
       // Loyalty card logic - every 8th coffee is free
