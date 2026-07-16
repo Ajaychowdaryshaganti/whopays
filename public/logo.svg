@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <linearGradient id="coinGrad" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#ea580c"/>
+    </linearGradient>
+    <linearGradient id="cupGrad" x1="40" y1="35" x2="80" y2="85" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#fef3c7"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="56" fill="url(#coinGrad)"/>
+  <circle cx="60" cy="60" r="56" fill="none" stroke="#fff" stroke-width="2" stroke-opacity="0.3"/>
+  <path d="M48 18 L60 8 L72 18" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.5"/>
+  <rect x="44" y="38" width="32" height="36" rx="4" fill="url(#cupGrad)"/>
+  <path d="M76 44 Q86 44 86 54 Q86 64 76 64" stroke="url(#cupGrad)" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M52 32 Q52 26 55 26 Q58 26 58 32" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-opacity="0.7"/>
+  <path d="M62 32 Q62 26 65 26 Q68 26 68 32" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-opacity="0.7"/>
+  <rect x="40" y="74" width="40" height="5" rx="2.5" fill="url(#cupGrad)"/>
+  <text x="60" y="104" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="700" fill="#fff" letter-spacing="0.5">WhoPays</text>
+</svg>
