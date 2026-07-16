@@ -41,6 +41,12 @@ function App() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [suggestedBuyer, setSuggestedBuyer] = useState<User | null>(null);
   const [historyPeriod, setHistoryPeriod] = useState<'week' | 'month' | 'year'>('month');
+
+  // Admin
+  const [adminMode, setAdminMode] = useState(false);
+  const [adminPinInput, setAdminPinInput] = useState('');
+  const [adminPinError, setAdminPinError] = useState(false);
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
   
   // New user form
   const [newUserName, setNewUserName] = useState('');
@@ -214,6 +220,71 @@ function App() {
     }
   };
 
+  // Admin handlers
+  const handleAdminPinSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const result = await api.adminVerify(adminPinInput);
+      if (result.authorized) {
+        setAdminUnlocked(true);
+        setAdminPinError(false);
+        setAdminPinInput('');
+      } else {
+        setAdminPinError(true);
+        setAdminPinInput('');
+        setTimeout(() => setAdminPinError(false), 600);
+      }
+    } catch (error) {
+      setAdminPinError(true);
+      setTimeout(() => setAdminPinError(false), 600);
+    }
+  };
+
+  const handleAdminDeleteTransaction = async (id: string) => {
+    if (!confirm('Delete this transaction? Balance changes will be reversed.')) return;
+    try {
+      await api.adminDeleteTransaction(id, '110125');
+      loadData();
+    } catch (error) {
+      console.error('Failed to delete transaction:', error);
+      alert('Failed to delete transaction');
+    }
+  };
+
+  const handleAdminClearTransactions = async () => {
+    if (!confirm('Clear ALL transactions? This cannot be undone.')) return;
+    try {
+      await api.adminClearAllTransactions('110125');
+      loadData();
+      alert('All transactions cleared');
+    } catch (error) {
+      alert('Failed to clear transactions');
+    }
+  };
+
+  const handleAdminResetBalances = async () => {
+    if (!confirm('Reset ALL user balances to 0? This cannot be undone.')) return;
+    try {
+      await api.adminResetBalances('110125');
+      loadData();
+      alert('All balances reset');
+    } catch (error) {
+      alert('Failed to reset balances');
+    }
+  };
+
+  const handleAdminResetAll = async () => {
+    if (!confirm('NUKE: Delete all transactions AND reset all balances? This cannot be undone.')) return;
+    if (!confirm('Are you absolutely sure? This wipes everything.')) return;
+    try {
+      await api.adminResetAll('110125');
+      loadData();
+      alert('Everything has been reset');
+    } catch (error) {
+      alert('Failed to reset all');
+    }
+  };
+
   const calculateTotalPrice = () => {
     const base = BASE_PRICES[newUserPreference] ?? 5.00;
     const addonsTotal = newUserAddons.reduce((sum, name) => {
@@ -377,6 +448,12 @@ function App() {
             <div className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-medium">
               {users.length} members
             </div>
+            <button
+              onClick={() => setAdminMode(true)}
+              className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 active:text-slate-600 transition-all"
+            >
+              ⚙️
+            </button>
           </div>
         </div>
       </header>
@@ -1161,6 +1238,115 @@ function App() {
                 Save Changes
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Modal */}
+      {adminMode && (
+        <div className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm flex items-end justify-center" onClick={() => { setAdminMode(false); setAdminUnlocked(false); setAdminPinInput(''); }}>
+          <div
+            className="bg-white w-full max-w-[430px] rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto animate-fadeIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-slate-900 flex items-center justify-center">
+                  <span className="text-sm">⚙️</span>
+                </div>
+                <h2 className="text-sm font-semibold text-slate-700">Admin Panel</h2>
+              </div>
+              <button onClick={() => { setAdminMode(false); setAdminUnlocked(false); setAdminPinInput(''); }} className="text-slate-400 active:text-slate-600 text-lg leading-none">×</button>
+            </div>
+
+            {!adminUnlocked ? (
+              <form onSubmit={handleAdminPinSubmit} className="space-y-3">
+                <p className="text-xs text-slate-400 text-center">Enter admin PIN to continue</p>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  value={adminPinInput}
+                  onChange={(e) => { setAdminPinInput(e.target.value.replace(/\D/g, '')); setAdminPinError(false); }}
+                  className={`w-full text-center text-2xl tracking-[0.3em] font-bold py-3 bg-slate-50 border-2 rounded-2xl focus:outline-none transition-all ${
+                    adminPinError
+                      ? 'border-rose-400 bg-rose-50 text-rose-500 animate-pulse'
+                      : 'border-slate-200 focus:border-slate-900 focus:bg-white text-slate-900'
+                  }`}
+                  placeholder="••••••"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  disabled={adminPinInput.length < 4}
+                  className="w-full bg-slate-900 text-white py-3 rounded-xl active:bg-slate-800 transition-all font-semibold text-base shadow-sm disabled:bg-slate-200 disabled:text-slate-400"
+                >
+                  Unlock Admin
+                </button>
+              </form>
+            ) : (
+              <div className="space-y-3">
+                {/* Admin Actions */}
+                <div className="rounded-xl p-4 bg-rose-50 border border-rose-100">
+                  <h3 className="text-xs font-semibold text-rose-600 mb-3">Danger Zone</h3>
+                  <div className="space-y-2">
+                    <button
+                      onClick={handleAdminClearTransactions}
+                      className="w-full bg-white text-rose-600 py-2.5 rounded-xl active:bg-rose-50 transition-all font-medium text-sm border border-rose-200"
+                    >
+                      🗑️ Clear All Transactions
+                    </button>
+                    <button
+                      onClick={handleAdminResetBalances}
+                      className="w-full bg-white text-rose-600 py-2.5 rounded-xl active:bg-rose-50 transition-all font-medium text-sm border border-rose-200"
+                    >
+                      💰 Reset All Balances to 0
+                    </button>
+                    <button
+                      onClick={handleAdminResetAll}
+                      className="w-full bg-rose-600 text-white py-2.5 rounded-xl active:bg-rose-700 transition-all font-semibold text-sm"
+                    >
+                      ☢️ Reset Everything (Nuke)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Transaction Management */}
+                <div className="rounded-xl p-4 bg-slate-50 border border-slate-100">
+                  <h3 className="text-xs font-semibold text-slate-500 mb-3">Manage Transactions</h3>
+                  {transactions.length === 0 ? (
+                    <p className="text-slate-400 text-sm text-center py-2">No transactions</p>
+                  ) : (
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                      {transactions.map(t => (
+                        <div key={t._id} className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-slate-100">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium text-slate-700 truncate">
+                              {t.buyer.name} → {t.participants.map(p => p.name).join(', ')}
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                              {new Date(t.date).toLocaleDateString()} · ${t.totalCost.toFixed(2)}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleAdminDeleteTransaction(t._id)}
+                            className="text-rose-400 active:text-rose-600 text-xs font-medium shrink-0 ml-2"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => { setAdminMode(false); setAdminUnlocked(false); setAdminPinInput(''); }}
+                  className="w-full bg-slate-100 text-slate-600 py-2.5 rounded-xl active:bg-slate-200 transition-all font-medium text-sm"
+                >
+                  Exit Admin
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

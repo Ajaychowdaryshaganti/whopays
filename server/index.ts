@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import userRoutes from './routes/users.ts';
 import transactionRoutes from './routes/transactions.ts';
+import adminRoutes from './routes/admin.ts';
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/coffee-tr
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/api/health', (_req: any, res: any) => {
   res.json({ status: 'ok', message: 'Coffee Tracker API is running' });

@@ -56,4 +56,54 @@ export const api = {
     const response = await fetch(`${API_BASE}/transactions/summary/monthly?month=${month}&year=${year}`);
     return response.json();
   },
+
+  // Admin
+  adminVerify: async (pin: string) => {
+    const response = await fetch(`${API_BASE}/admin/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin }),
+    });
+    return response.json();
+  },
+
+  adminDeleteTransaction: async (id: string, pin: string) => {
+    const response = await fetch(`${API_BASE}/admin/transactions/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-pin': pin },
+    });
+    return response.json();
+  },
+
+  adminClearAllTransactions: async (pin: string) => {
+    const response = await fetch(`${API_BASE}/admin/transactions`, {
+      method: 'DELETE',
+      headers: { 'x-admin-pin': pin },
+    });
+    return response.json();
+  },
+
+  adminResetBalances: async (pin: string) => {
+    const response = await fetch(`${API_BASE}/admin/reset-balances`, {
+      method: 'POST',
+      headers: { 'x-admin-pin': pin },
+    });
+    return response.json();
+  },
+
+  adminResetAll: async (pin: string) => {
+    const response = await fetch(`${API_BASE}/admin/reset-all`, {
+      method: 'POST',
+      headers: { 'x-admin-pin': pin },
+    });
+    return response.json();
+  },
+
+  adminDeleteUser: async (id: string, pin: string) => {
+    const response = await fetch(`${API_BASE}/admin/users/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-pin': pin },
+    });
+    return response.json();
+  },
 };
