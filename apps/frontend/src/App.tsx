@@ -454,6 +454,7 @@ function App() {
       if (!breakdown[buyerName]) breakdown[buyerName] = {};
 
       t.participants.forEach(p => {
+        if (p._id === t.buyer._id) return; // Skip buyer's own coffee (not spending on someone else)
         const participantName = p.name;
         const pp = t.participantPrices?.find(pr => pr.user === p._id);
         const share = pp ? pp.price : p.coffeePrice;
