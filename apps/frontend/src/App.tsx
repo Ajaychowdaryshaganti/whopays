@@ -32,7 +32,7 @@ function App() {
   
   // New user form
   const [newUserName, setNewUserName] = useState('');
-  const [newUserPreference, setNewUserPreference] = useState('Cappuccino');
+  const [newUserPreference, setNewUserPreference] = useState(() => Object.keys(basePrices)[0] || 'Cappuccino');
   const [newUserPrice, setNewUserPrice] = useState(5.00);
   const [newUserPriceOverride, setNewUserPriceOverride] = useState(false);
   const [newUserAddons, setNewUserAddons] = useState<string[]>([]);
@@ -40,7 +40,7 @@ function App() {
   // Edit user
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editName, setEditName] = useState('');
-  const [editPreference, setEditPreference] = useState('Cappuccino');
+  const [editPreference, setEditPreference] = useState(() => Object.keys(basePrices)[0] || 'Cappuccino');
   const [editPrice, setEditPrice] = useState(5.00);
   const [editPriceOverride, setEditPriceOverride] = useState(false);
   const [editAddons, setEditAddons] = useState<string[]>([]);
@@ -128,7 +128,7 @@ function App() {
         addons: newUserAddons
       });
       setNewUserName('');
-      setNewUserPreference('Cappuccino');
+      setNewUserPreference(Object.keys(basePrices)[0] || 'Cappuccino');
       setNewUserPrice(5.00);
       setNewUserPriceOverride(false);
       setNewUserAddons([]);
@@ -794,43 +794,10 @@ function App() {
                     onChange={(e) => setNewUserPreference(e.target.value)}
                     className="w-full px-3.5 py-2.5 text-base bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 focus:bg-white transition-all"
                   >
-                      <optgroup label="Hot Coffees">
-                        <option>Cappuccino</option>
-                        <option>Latte</option>
-                        <option>Flat White</option>
-                        <option>Long Black</option>
-                        <option>Espresso</option>
-                        <option>Americano</option>
-                        <option>Mocha</option>
-                        <option>Hot Chocolate</option>
-                        <option>Chai Latte</option>
-                        <option>Matcha Latte</option>
-                      </optgroup>
-                      <optgroup label="Iced Coffees">
-                        <option>Iced Latte</option>
-                        <option>Iced Cappuccino</option>
-                        <option>Iced Long Black</option>
-                        <option>Cold Brew</option>
-                        <option>Iced Mocha</option>
-                        <option>Frappé</option>
-                      </optgroup>
-                      <optgroup label="Other Drinks">
-                        <option>Fresh Juice</option>
-                        <option>Smoothie</option>
-                        <option>Milkshake</option>
-                        <option>Soft Drink</option>
-                        <option>Tea</option>
-                        <option>Iced Tea</option>
-                      </optgroup>
-                      <optgroup label="Food">
-                        <option>Pastry</option>
-                        <option>Croissant</option>
-                        <option>Muffin</option>
-                        <option>Toast</option>
-                        <option>Bagel</option>
-                        <option>Breakfast Roll</option>
-                      </optgroup>
-                    </select>
+                    {Object.keys(basePrices).map(name => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
                 </div>
                 {/* Add-ons */}
                 <div>
@@ -1354,24 +1321,9 @@ function App() {
                   onChange={(e) => setEditPreference(e.target.value)}
                   className="w-full px-3.5 py-2.5 text-base bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 focus:bg-white transition-all"
                 >
-                  <optgroup label="Hot Coffees">
-                    <option>Cappuccino</option><option>Latte</option><option>Flat White</option>
-                    <option>Long Black</option><option>Espresso</option><option>Americano</option>
-                    <option>Mocha</option><option>Hot Chocolate</option><option>Chai Latte</option>
-                    <option>Matcha Latte</option>
-                  </optgroup>
-                  <optgroup label="Iced Coffees">
-                    <option>Iced Latte</option><option>Iced Cappuccino</option><option>Iced Long Black</option>
-                    <option>Cold Brew</option><option>Iced Mocha</option><option>Frappé</option>
-                  </optgroup>
-                  <optgroup label="Other Drinks">
-                    <option>Fresh Juice</option><option>Smoothie</option><option>Milkshake</option>
-                    <option>Soft Drink</option><option>Tea</option><option>Iced Tea</option>
-                  </optgroup>
-                  <optgroup label="Food">
-                    <option>Pastry</option><option>Croissant</option><option>Muffin</option>
-                    <option>Toast</option><option>Bagel</option><option>Breakfast Roll</option>
-                  </optgroup>
+                  {Object.keys(basePrices).map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
                 </select>
               </div>
               <div>
