@@ -51,6 +51,7 @@ function App() {
   const [transactionDescription, setTransactionDescription] = useState('');
   const [priceOverrides, setPriceOverrides] = useState<Record<string, number>>({});
   const [freeCoffees, setFreeCoffees] = useState<string[]>([]);
+  const [isCreatingTransaction, setIsCreatingTransaction] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -149,8 +150,9 @@ function App() {
 
   const handleCreateTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedBuyer || selectedParticipants.length === 0) return;
+    if (!selectedBuyer || selectedParticipants.length === 0 || isCreatingTransaction) return;
     
+    setIsCreatingTransaction(true);
     try {
       await api.createTransaction({
         buyer: selectedBuyer,
@@ -167,6 +169,8 @@ function App() {
       loadData();
     } catch (error) {
       console.error('Failed to create transaction:', error);
+    } finally {
+      setIsCreatingTransaction(false);
     }
   };
 
@@ -1090,10 +1094,10 @@ function App() {
 
               <button
                 type="submit"
-                disabled={!selectedBuyer || selectedParticipants.length === 0}
+                disabled={!selectedBuyer || selectedParticipants.length === 0 || isCreatingTransaction}
                 className="w-full bg-slate-900 text-white py-3 rounded-xl active:bg-slate-800 transition-all font-semibold text-base shadow-sm disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
               >
-                Record Transaction
+                {isCreatingTransaction ? 'Recording...' : 'Record Transaction'}
               </button>
             </form>
           </div>
