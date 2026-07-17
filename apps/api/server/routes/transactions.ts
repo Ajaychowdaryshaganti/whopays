@@ -45,6 +45,10 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid buyer or participants' });
     }
 
+    if (participantUsers.length < 2) {
+      return res.status(400).json({ error: 'At least 2 members are required to record a transaction' });
+    }
+
     const freeCoffeeList: string[] = freeCoffees || [];
 
     // Calculate total cost and per-participant prices based on coffee price or override
