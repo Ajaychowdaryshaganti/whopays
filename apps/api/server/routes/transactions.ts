@@ -99,7 +99,16 @@ router.post('/', async (req, res) => {
       const individualPrice = pp ? pp.price : costPerPerson;
       const isFree = pp?.isFreeCoffee ?? false;
 
-      if (isFree) {
+      // Skip balance deduction for the buyer (they already got credited for totalCost)
+      if (user._id.toString() === buyer) {
+        user.coffeesDrank += 1;
+        // Loyalty card logic still applies to buyer
+        user.loyaltyCount += 1;
+        if (user.loyaltyCount === 8) {
+          user.balance += user.coffeePrice; // Credit for free coffee
+          user.loyaltyCount = 0;
+        }
+      } else if (isFree) {
         // Free coffee: don't deduct balance, but record they drank a coffee
         user.balance -= 0; // No balance deduction
         user.coffeesDrank += 1;
