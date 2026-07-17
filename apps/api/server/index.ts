@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import userRoutes from './routes/users.js';
 import transactionRoutes from './routes/transactions.js';
 import adminRoutes from './routes/admin.js';
+import menuRoutes from './routes/menu.js';
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ connectDB().catch((err) => console.error('MongoDB connection error:', err));
 app.use('/api/users', userRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/menu', menuRoutes);
 
 app.get('/api/health', (_req: any, res: any) => {
   res.json({ status: 'ok', message: 'WhoPays API is running' });

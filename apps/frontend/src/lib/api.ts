@@ -301,4 +301,39 @@ export const api = {
       throw error;
     }
   },
+
+  // Menu
+  getMenu: async () => {
+    try {
+      const response = await fetch(`${API_BASE}/menu`);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
+      return response.json();
+    } catch (error) {
+      console.error('getMenu error:', error);
+      throw error;
+    }
+  },
+
+  adminUpdateMenu: async (menu: { basePrices: { name: string; price: number }[]; addons: { name: string; price: number }[] }, pin: string) => {
+    try {
+      const response = await fetch(`${API_BASE}/menu`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-pin': pin },
+        body: JSON.stringify(menu),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
+      return response.json();
+    } catch (error) {
+      console.error('adminUpdateMenu error:', error);
+      throw error;
+    }
+  },
 };

@@ -3,33 +3,6 @@ import { api } from './lib/api';
 import type { User, Transaction } from './types';
 import './App.css';
 
-const BASE_PRICES: Record<string, number> = {
-  Cappuccino: 5.00, Latte: 5.00, 'Flat White': 5.00, 'Long Black': 4.50,
-  Espresso: 4.00, Americano: 4.50, Mocha: 5.50, 'Hot Chocolate': 5.00,
-  'Chai Latte': 5.50, 'Matcha Latte': 6.00,
-  'Iced Latte': 5.50, 'Iced Cappuccino': 5.50, 'Iced Long Black': 5.00,
-  'Cold Brew': 5.00, 'Iced Mocha': 6.00, 'Frappé': 6.50,
-  'Fresh Juice': 8.00, Smoothie: 9.00, Milkshake: 7.00,
-  'Soft Drink': 4.00, Tea: 4.00, 'Iced Tea': 4.50,
-  Pastry: 5.00, Croissant: 4.50, Muffin: 4.50,
-  Toast: 5.00, Bagel: 6.00, 'Breakfast Roll': 12.00,
-};
-
-const ADDONS: { name: string; price: number }[] = [
-  { name: 'Oat Milk', price: 0.50 },
-  { name: 'Almond Milk', price: 0.50 },
-  { name: 'Soy Milk', price: 0.50 },
-  { name: 'Lactose Free Milk', price: 0.50 },
-  { name: 'Skim Milk', price: 0 },
-  { name: 'Extra Shot', price: 1.00 },
-  { name: 'Decaf', price: 0.50 },
-  { name: 'Caramel Syrup', price: 0.50 },
-  { name: 'Vanilla Syrup', price: 0.50 },
-  { name: 'Hazelnut Syrup', price: 0.50 },
-  { name: 'Extra Hot', price: 0 },
-  { name: 'Half Strength', price: 0 },
-];
-
 function App() {
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('whopays_unlocked') === 'true');
   const [pin, setPin] = useState('');
@@ -43,12 +16,16 @@ function App() {
   const [presentToday, setPresentToday] = useState<string[]>([]);
   const [buyerOverride, setBuyerOverride] = useState<string | null>(null);
 
+  // Menu
+  const [basePrices, setBasePrices] = useState<Record<string, number>>({});
+  const [addons, setAddons] = useState<{ name: string; price: number }[]>([]);
+
   // Admin
   const [adminMode, setAdminMode] = useState(false);
   const [adminPinInput, setAdminPinInput] = useState('');
   const [adminPinError, setAdminPinError] = useState(false);
   const [adminUnlocked, setAdminUnlocked] = useState(() => sessionStorage.getItem('whopays_admin_unlocked') === 'true');
-  const [adminTab, setAdminTab] = useState<'actions' | 'users' | 'transactions' | 'logs'>('actions');
+  const [adminTab, setAdminTab] = useState<'actions' | 'users' | 'transactions' | 'logs' | 'menu'>('actions');
   const [adminLogs, setAdminLogs] = useState<any[]>([]);
   const [adminEditUser, setAdminEditUser] = useState<User | null>(null);
   const [adminEditTx, setAdminEditTx] = useState<Transaction | null>(null);
@@ -81,12 +58,19 @@ function App() {
 
   const loadData = async () => {
     try {
-      const [usersData, transactionsData] = await Promise.all([
+      const [usersData, transactionsData, menuData] = await Promise.all([
         api.getUsers(),
-        api.getTransactions()
+        api.getTransactions(),
+        api.getMenu()
       ]);
       setUsers(usersData);
       setTransactions(transactionsData);
+      const basePricesRecord: Record<string, number> = {};
+      menuData.basePrices.forEach((item: { name: string; price: number }) => {
+        basePricesRecord[item.name] = item.price;
+      });
+      setBasePrices(basePricesRecord);
+      setAddons(menuData.addons);
     } catch (error) {
       console.error('Failed to load data:', error);
     }
@@ -260,9 +244,9 @@ function App() {
   };
 
   const calculateEditPrice = () => {
-    const base = BASE_PRICES[editPreference] ?? 5.00;
+    const base = basePrices[editPreference] ?? 5.00;
     const addonsTotal = editAddons.reduce((sum, name) => {
-      const addon = ADDONS.find(a => a.name === name);
+      const addon = addons.find(a => a.name === name);
       return sum + (addon?.price ?? 0);
     }, 0);
     return base + addonsTotal;
@@ -396,9 +380,9 @@ function App() {
   };
 
   const calculateTotalPrice = () => {
-    const base = BASE_PRICES[newUserPreference] ?? 5.00;
+    const base = basePrices[newUserPreference] ?? 5.00;
     const addonsTotal = newUserAddons.reduce((sum, name) => {
-      const addon = ADDONS.find(a => a.name === name);
+      const addon = addons.find(a => a.name === name);
       return sum + (addon?.price ?? 0);
     }, 0);
     return base + addonsTotal;
@@ -852,7 +836,7 @@ function App() {
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-2">Add-ons</label>
                   <div className="grid grid-cols-2 gap-2">
-                    {ADDONS.map((addon) => (
+                    {addons.map((addon) => (
                       <button
                         type="button"
                         key={addon.name}
@@ -876,12 +860,12 @@ function App() {
                   <div className="flex justify-between items-center mb-3">
                     <div className="space-y-0.5">
                       <p className="text-xs text-slate-500">
-                        Base: <span className="font-medium text-slate-700">${BASE_PRICES[newUserPreference]?.toFixed(2) ?? '5.00'}</span>
+                        Base: <span className="font-medium text-slate-700">${basePrices[newUserPreference]?.toFixed(2) ?? '5.00'}</span>
                       </p>
                       {newUserAddons.length > 0 && (
                         <p className="text-xs text-slate-500">
                           Add-ons: <span className="font-medium text-slate-700">+${newUserAddons.reduce((sum, name) => {
-                            const addon = ADDONS.find(a => a.name === name);
+                            const addon = addons.find(a => a.name === name);
                             return sum + (addon?.price ?? 0);
                           }, 0).toFixed(2)}</span>
                         </p>
@@ -1393,7 +1377,7 @@ function App() {
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-2">Add-ons</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {ADDONS.map((addon) => (
+                  {addons.map((addon) => (
                     <button
                       type="button"
                       key={addon.name}
@@ -1416,12 +1400,12 @@ function App() {
                 <div className="flex justify-between items-center mb-3">
                   <div className="space-y-0.5">
                     <p className="text-xs text-slate-500">
-                      Base: <span className="font-medium text-slate-700">${BASE_PRICES[editPreference]?.toFixed(2) ?? '5.00'}</span>
+                      Base: <span className="font-medium text-slate-700">${basePrices[editPreference]?.toFixed(2) ?? '5.00'}</span>
                     </p>
                     {editAddons.length > 0 && (
                       <p className="text-xs text-slate-500">
                         Add-ons: <span className="font-medium text-slate-700">+${editAddons.reduce((sum, name) => {
-                          const addon = ADDONS.find(a => a.name === name);
+                          const addon = addons.find(a => a.name === name);
                           return sum + (addon?.price ?? 0);
                         }, 0).toFixed(2)}</span>
                       </p>
@@ -1518,7 +1502,7 @@ function App() {
               <div className="space-y-3">
                 {/* Admin Tabs */}
                 <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
-                  {(['actions', 'users', 'transactions', 'logs'] as const).map(tab => (
+                  {(['actions', 'users', 'transactions', 'logs', 'menu'] as const).map(tab => (
                     <button
                       key={tab}
                       onClick={() => {
@@ -1665,6 +1649,80 @@ function App() {
                         ))}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Menu Tab */}
+                {adminTab === 'menu' && (
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-700 mb-3">Base Prices</h3>
+                      <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                        {Object.entries(basePrices).map(([name, price]) => (
+                          <div key={name} className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={name}
+                              disabled
+                              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-600"
+                            />
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={price}
+                              onChange={(e) => {
+                                const newBasePrices = { ...basePrices };
+                                newBasePrices[name] = parseFloat(e.target.value) || 0;
+                                setBasePrices(newBasePrices);
+                              }}
+                              className="w-20 px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-700 mb-3">Add-ons</h3>
+                      <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                        {addons.map((addon) => (
+                          <div key={addon.name} className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={addon.name}
+                              disabled
+                              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-600"
+                            />
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={addon.price}
+                              onChange={(e) => {
+                                const newAddons = addons.map(a =>
+                                  a.name === addon.name ? { ...a, price: parseFloat(e.target.value) || 0 } : a
+                                );
+                                setAddons(newAddons);
+                              }}
+                              className="w-20 px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const basePricesArray = Object.entries(basePrices).map(([name, price]) => ({ name, price }));
+                          await api.adminUpdateMenu({ basePrices: basePricesArray, addons }, '110125');
+                          alert('Menu updated successfully');
+                          loadData();
+                        } catch (error) {
+                          alert('Failed to update menu');
+                        }
+                      }}
+                      className="w-full bg-amber-500 text-white py-2.5 rounded-xl active:bg-amber-600 transition-all font-medium text-sm"
+                    >
+                      Save Menu Changes
+                    </button>
                   </div>
                 )}
 
