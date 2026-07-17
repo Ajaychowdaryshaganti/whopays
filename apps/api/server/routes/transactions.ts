@@ -101,13 +101,19 @@ router.post('/', async (req, res) => {
 
       // Skip balance deduction for the buyer (they already got credited for totalCost)
       if (user._id.toString() === buyer) {
-        user.coffeesDrank += 1;
-        // Loyalty card logic still applies to buyer
-        user.loyaltyCount += 1;
-        if (user.loyaltyCount === 8) {
-          user.balance += user.coffeePrice; // Credit for free coffee
-          user.earnedFreeCoffees += 1; // Track earned free coffee
+        if (isFree) {
+          // Buyer used their own free coffee: don't increment coffeesDrank, track free usage
+          user.freeCoffeesUsed += 1;
           user.loyaltyCount = 0;
+        } else {
+          user.coffeesDrank += 1;
+          // Loyalty card logic still applies to buyer
+          user.loyaltyCount += 1;
+          if (user.loyaltyCount === 8) {
+            user.balance += user.coffeePrice; // Credit for free coffee
+            user.earnedFreeCoffees += 1; // Track earned free coffee
+            user.loyaltyCount = 0;
+          }
         }
       } else if (isFree) {
         // Free coffee: don't deduct balance, don't increment coffeesDrank
