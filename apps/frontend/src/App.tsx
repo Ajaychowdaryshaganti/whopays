@@ -572,7 +572,7 @@ function App() {
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-xl p-3 bg-slate-50 border border-slate-100 text-center">
-                  <p className="text-2xl font-bold text-slate-800">{users.reduce((sum, u) => sum + u.coffeesDrank, 0)}</p>
+                  <p className="text-2xl font-bold text-slate-800">{users.reduce((sum, u) => sum + u.coffeesDrank + (u.freeCoffeesUsed || 0), 0)}</p>
                   <p className="text-[11px] text-slate-400 mt-0.5">Total Coffees</p>
                 </div>
                 <div className="rounded-xl p-3 bg-green-50 border border-green-100 text-center">
