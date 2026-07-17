@@ -31,7 +31,7 @@ const ADDONS: { name: string; price: number }[] = [
 ];
 
 function App() {
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('whopays_unlocked') === 'true');
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
@@ -47,7 +47,7 @@ function App() {
   const [adminMode, setAdminMode] = useState(false);
   const [adminPinInput, setAdminPinInput] = useState('');
   const [adminPinError, setAdminPinError] = useState(false);
-  const [adminUnlocked, setAdminUnlocked] = useState(false);
+  const [adminUnlocked, setAdminUnlocked] = useState(() => sessionStorage.getItem('whopays_admin_unlocked') === 'true');
   const [adminTab, setAdminTab] = useState<'actions' | 'users' | 'transactions' | 'logs'>('actions');
   const [adminLogs, setAdminLogs] = useState<any[]>([]);
   const [adminEditUser, setAdminEditUser] = useState<User | null>(null);
@@ -293,6 +293,7 @@ function App() {
       const result = await api.adminVerify(adminPinInput);
       if (result.authorized) {
         setAdminUnlocked(true);
+        sessionStorage.setItem('whopays_admin_unlocked', 'true');
         setAdminPinError(false);
         setAdminPinInput('');
       } else {
@@ -502,6 +503,7 @@ function App() {
       e.preventDefault();
       if (pin === '0571') {
         setUnlocked(true);
+        sessionStorage.setItem('whopays_unlocked', 'true');
       } else {
         setPinError(true);
         setPin('');
@@ -1473,7 +1475,7 @@ function App() {
 
       {/* Admin Modal */}
       {adminMode && (
-        <div className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm flex items-end justify-center" onClick={() => { setAdminMode(false); setAdminUnlocked(false); setAdminPinInput(''); }}>
+        <div className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm flex items-end justify-center" onClick={() => { setAdminMode(false); setAdminUnlocked(false); sessionStorage.removeItem('whopays_admin_unlocked'); setAdminPinInput(''); }}>
           <div
             className="bg-white w-full max-w-[430px] rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto animate-fadeIn"
             onClick={(e) => e.stopPropagation()}
@@ -1485,7 +1487,7 @@ function App() {
                 </div>
                 <h2 className="text-sm font-semibold text-slate-700">Admin Panel</h2>
               </div>
-              <button onClick={() => { setAdminMode(false); setAdminUnlocked(false); setAdminPinInput(''); }} className="text-slate-400 active:text-slate-600 text-lg leading-none">×</button>
+              <button onClick={() => { setAdminMode(false); setAdminUnlocked(false); sessionStorage.removeItem('whopays_admin_unlocked'); setAdminPinInput(''); }} className="text-slate-400 active:text-slate-600 text-lg leading-none">×</button>
             </div>
 
             {!adminUnlocked ? (
@@ -1667,7 +1669,7 @@ function App() {
                 )}
 
                 <button
-                  onClick={() => { setAdminMode(false); setAdminUnlocked(false); setAdminPinInput(''); setAdminTab('actions'); }}
+                  onClick={() => { setAdminMode(false); setAdminUnlocked(false); sessionStorage.removeItem('whopays_admin_unlocked'); setAdminPinInput(''); setAdminTab('actions'); }}
                   className="w-full bg-slate-100 text-slate-600 py-2.5 rounded-xl active:bg-slate-200 transition-all font-medium text-sm"
                 >
                   Exit Admin
