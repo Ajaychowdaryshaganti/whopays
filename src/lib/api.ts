@@ -1,30 +1,43 @@
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000/api';
 
+// Debug logging
+console.log('API_BASE:', API_BASE);
+
 export const api = {
   // Users
   getUsers: async () => {
     try {
+      console.log('Fetching from:', `${API_BASE}/users`);
       const response = await fetch(`${API_BASE}/users`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
       return response.json();
     } catch (error) {
       console.error('getUsers error:', error);
-      throw new Error('Load failed');
+      throw error;
     }
   },
   
   createUser: async (user: Partial<{ name: string; coffeePreference: string; coffeePrice: number; addons: string[] }>) => {
     try {
+      console.log('Creating user:', user);
       const response = await fetch(`${API_BASE}/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(user),
       });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
       return response.json();
     } catch (error) {
       console.error('createUser error:', error);
-      throw new Error('Load failed');
+      throw error;
     }
   },
   
@@ -35,11 +48,15 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(user),
       });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
       return response.json();
     } catch (error) {
       console.error('updateUser error:', error);
-      throw new Error('Load failed');
+      throw error;
     }
   },
   
@@ -48,22 +65,30 @@ export const api = {
       const response = await fetch(`${API_BASE}/users/${id}`, {
         method: 'DELETE',
       });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
       return response.json();
     } catch (error) {
       console.error('deleteUser error:', error);
-      throw new Error('Load failed');
+      throw error;
     }
   },
   
   getSuggestedBuyer: async () => {
     try {
       const response = await fetch(`${API_BASE}/users/suggest/next-buyer`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
       return response.json();
     } catch (error) {
       console.error('getSuggestedBuyer error:', error);
-      throw new Error('Load failed');
+      throw error;
     }
   },
   
@@ -71,11 +96,15 @@ export const api = {
   getTransactions: async () => {
     try {
       const response = await fetch(`${API_BASE}/transactions`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
       return response.json();
     } catch (error) {
       console.error('getTransactions error:', error);
-      throw new Error('Load failed');
+      throw error;
     }
   },
   
@@ -86,22 +115,30 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(transaction),
       });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
       return response.json();
     } catch (error) {
       console.error('createTransaction error:', error);
-      throw new Error('Load failed');
+      throw error;
     }
   },
   
   getMonthlySummary: async (month: number, year: number) => {
     try {
       const response = await fetch(`${API_BASE}/transactions/summary/monthly?month=${month}&year=${year}`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
       return response.json();
     } catch (error) {
       console.error('getMonthlySummary error:', error);
-      throw new Error('Load failed');
+      throw error;
     }
   },
 
@@ -113,11 +150,15 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin }),
       });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
       return response.json();
     } catch (error) {
       console.error('adminVerify error:', error);
-      throw new Error('Load failed');
+      throw error;
     }
   },
 
@@ -127,11 +168,15 @@ export const api = {
         method: 'DELETE',
         headers: { 'x-admin-pin': pin },
       });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
       return response.json();
     } catch (error) {
       console.error('adminDeleteTransaction error:', error);
-      throw new Error('Load failed');
+      throw error;
     }
   },
 
@@ -141,11 +186,15 @@ export const api = {
         method: 'DELETE',
         headers: { 'x-admin-pin': pin },
       });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
       return response.json();
     } catch (error) {
       console.error('adminClearAllTransactions error:', error);
-      throw new Error('Load failed');
+      throw error;
     }
   },
 
@@ -155,11 +204,15 @@ export const api = {
         method: 'POST',
         headers: { 'x-admin-pin': pin },
       });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
       return response.json();
     } catch (error) {
       console.error('adminResetBalances error:', error);
-      throw new Error('Load failed');
+      throw error;
     }
   },
 
@@ -169,11 +222,15 @@ export const api = {
         method: 'POST',
         headers: { 'x-admin-pin': pin },
       });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
       return response.json();
     } catch (error) {
       console.error('adminResetAll error:', error);
-      throw new Error('Load failed');
+      throw error;
     }
   },
 
@@ -183,11 +240,15 @@ export const api = {
         method: 'DELETE',
         headers: { 'x-admin-pin': pin },
       });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
       return response.json();
     } catch (error) {
       console.error('adminDeleteUser error:', error);
-      throw new Error('Load failed');
+      throw error;
     }
   },
 };
