@@ -7,6 +7,7 @@ export interface User {
   timesBought: number;
   coffeesDrank: number;
   loyaltyCount: number;
+  earnedFreeCoffees: number;
   freeCoffeesUsed: number;
   addons: string[];
   createdAt: string;

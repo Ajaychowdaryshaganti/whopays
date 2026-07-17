@@ -106,6 +106,7 @@ router.post('/', async (req, res) => {
         user.loyaltyCount += 1;
         if (user.loyaltyCount === 8) {
           user.balance += user.coffeePrice; // Credit for free coffee
+          user.earnedFreeCoffees += 1; // Track earned free coffee
           user.loyaltyCount = 0;
         }
       } else if (isFree) {
@@ -121,6 +122,7 @@ router.post('/', async (req, res) => {
         user.loyaltyCount += 1;
         if (user.loyaltyCount === 8) {
           user.balance += user.coffeePrice; // Credit for free coffee
+          user.earnedFreeCoffees += 1; // Track earned free coffee
           user.loyaltyCount = 0;
         }
       }

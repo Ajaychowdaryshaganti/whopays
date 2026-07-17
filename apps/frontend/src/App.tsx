@@ -214,8 +214,7 @@ function App() {
   };
 
   const getAvailableFreeCoffees = (user: User): number => {
-    const earned = Math.floor(user.coffeesDrank / 8);
-    return earned - (user.freeCoffeesUsed || 0);
+    return (user.earnedFreeCoffees || 0) - (user.freeCoffeesUsed || 0);
   };
 
   const toggleAddon = (addonName: string) => {
@@ -1711,6 +1710,7 @@ function App() {
                 timesBought: parseInt(formData.get('timesBought') as string) || 0,
                 coffeesDrank: parseInt(formData.get('coffeesDrank') as string) || 0,
                 loyaltyCount: parseInt(formData.get('loyaltyCount') as string) || 0,
+                earnedFreeCoffees: parseInt(formData.get('earnedFreeCoffees') as string) || 0,
                 freeCoffeesUsed: parseInt(formData.get('freeCoffeesUsed') as string) || 0,
               });
             }} className="space-y-3">
@@ -1742,6 +1742,10 @@ function App() {
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1">Loyalty Count</label>
                   <input name="loyaltyCount" type="number" defaultValue={adminEditUser.loyaltyCount} className="w-full px-3 py-2.5 text-base bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Earned Free Coffees</label>
+                  <input name="earnedFreeCoffees" type="number" defaultValue={adminEditUser.earnedFreeCoffees || 0} className="w-full px-3 py-2.5 text-base bg-slate-50 border border-slate-200 rounded-xl" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1">Free Coffees Used</label>
