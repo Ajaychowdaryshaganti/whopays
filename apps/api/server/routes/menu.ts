@@ -1,11 +1,18 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Menu from '../models/Menu.js';
 
 const router = express.Router();
 
+const connectDB = async () => {
+  if (mongoose.connections[0].readyState === 1) return;
+  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/coffee-tracker');
+};
+
 // Get menu
 router.get('/', async (req, res) => {
   try {
+    await connectDB();
     let menu = await Menu.findOne();
     if (!menu) {
       // Create default menu if none exists
@@ -65,6 +72,7 @@ router.get('/', async (req, res) => {
 // Update menu (admin only)
 router.put('/', async (req, res) => {
   try {
+    await connectDB();
     const { basePrices, addons } = req.body;
     let menu = await Menu.findOne();
     if (!menu) {
