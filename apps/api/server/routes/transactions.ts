@@ -109,16 +109,6 @@ router.post('/', async (req, res) => {
           user.loyaltyCount = 0;
         }
       } else if (isFree) {
-        // Check if user has available free coffees
-        const earnedFreeCoffees = Math.floor(user.coffeesDrank / 8);
-        const availableFreeCoffees = earnedFreeCoffees - (user.freeCoffeesUsed || 0);
-        
-        if (availableFreeCoffees <= 0) {
-          return res.status(400).json({ 
-            error: `${user.name} does not have any free coffees available. They have used ${user.freeCoffeesUsed || 0} free coffees and have earned ${earnedFreeCoffees}.` 
-          });
-        }
-        
         // Free coffee: don't deduct balance, don't increment coffeesDrank
         user.balance -= 0; // No balance deduction
         user.freeCoffeesUsed += 1;
