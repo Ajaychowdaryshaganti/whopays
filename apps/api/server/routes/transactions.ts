@@ -112,7 +112,7 @@ router.post('/', async (req, res) => {
       } else if (isFree) {
         // Free coffee: don't deduct balance, don't increment coffeesDrank
         user.balance -= 0; // No balance deduction
-        // Don't auto-increment freeCoffeesUsed - let admin control this
+        user.freeCoffeesUsed += 1;
         // Reset loyalty count since they used their free coffee
         user.loyaltyCount = 0;
       } else {
