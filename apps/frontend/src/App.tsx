@@ -998,7 +998,6 @@ function App() {
                       const isOverridden = priceOverrides[userId] !== undefined;
                       const isFreeCoffee = freeCoffees.includes(userId);
                       const availableFree = getAvailableFreeCoffees(user);
-                      const canUseFree = availableFree > 0 || isFreeCoffee;
                       return (
                         <div key={userId} className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all ${
                           isFreeCoffee ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-100'
@@ -1008,20 +1007,18 @@ function App() {
                           </div>
                           <span className="text-sm font-medium text-slate-700 flex-1 min-w-0 truncate">{user.name}</span>
                           <div className="flex items-center gap-1.5 shrink-0">
-                            {canUseFree && (
-                              <button
-                                type="button"
-                                onClick={() => toggleFreeCoffee(userId)}
-                                className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                  isFreeCoffee
-                                    ? 'bg-green-500 text-white'
-                                    : 'bg-green-100 text-green-600 active:bg-green-200'
-                                }`}
-                                title={`${availableFree} free coffee${availableFree !== 1 ? 's' : ''} available`}
-                              >
-                                🎟️ {availableFree} free
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => toggleFreeCoffee(userId)}
+                              className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                isFreeCoffee
+                                  ? 'bg-green-500 text-white'
+                                  : 'bg-green-100 text-green-600 active:bg-green-200'
+                              }`}
+                              title={`${availableFree} free coffee${availableFree !== 1 ? 's' : ''} available`}
+                            >
+                              🎟️ {availableFree} free
+                            </button>
                             {isFreeCoffee ? (
                               <span className="text-sm font-semibold text-green-600 w-20 text-right">FREE</span>
                             ) : (
