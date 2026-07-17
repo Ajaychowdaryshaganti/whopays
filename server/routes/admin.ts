@@ -1,7 +1,7 @@
 import express from 'express';
-import Transaction from '../models/Transaction.ts';
-import User from '../models/User.ts';
-import Log from '../models/Log.ts';
+import Transaction from '../models/Transaction.js';
+import User from '../models/User.js';
+import Log from '../models/Log.js';
 
 const router = express.Router();
 

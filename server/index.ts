@@ -2,9 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import userRoutes from './routes/users.ts';
-import transactionRoutes from './routes/transactions.ts';
-import adminRoutes from './routes/admin.ts';
+import userRoutes from './routes/users.js';
+import transactionRoutes from './routes/transactions.js';
+import adminRoutes from './routes/admin.js';
 
 dotenv.config();
 
