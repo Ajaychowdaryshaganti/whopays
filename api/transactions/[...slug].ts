@@ -1,7 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import mongoose from 'mongoose';
-import Transaction from '../../server/models/Transaction';
-import User from '../../server/models/User';
+import Transaction from '../models/Transaction';
+import User from '../models/User';
 
 const connectDB = async () => {
   if (mongoose.connections[0].readyState === 1) return;

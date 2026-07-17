@@ -1,7 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import mongoose from 'mongoose';
-import Transaction from '../../server/models/Transaction';
-import User from '../../server/models/User';
+import Transaction from '../models/Transaction';
+import User from '../models/User';
 
 const ADMIN_PIN = '110125';
 
