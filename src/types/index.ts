@@ -7,6 +7,7 @@ export interface User {
   timesBought: number;
   coffeesDrank: number;
   loyaltyCount: number;
+  freeCoffeesUsed: number;
   addons: string[];
   createdAt: string;
 }
@@ -14,6 +15,8 @@ export interface User {
 export interface ParticipantPrice {
   user: string;
   price: number;
+  isFreeCoffee?: boolean;
+  freeCoffeeValue?: number;
 }
 
 export interface Transaction {

@@ -1,13 +1,9 @@
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
-// Debug logging
-console.log('API_BASE:', API_BASE);
-
 export const api = {
   // Users
   getUsers: async () => {
     try {
-      console.log('Fetching from:', `${API_BASE}/users`);
       const response = await fetch(`${API_BASE}/users`);
       if (!response.ok) {
         const text = await response.text();
@@ -23,7 +19,6 @@ export const api = {
   
   createUser: async (user: Partial<{ name: string; coffeePreference: string; coffeePrice: number; addons: string[] }>) => {
     try {
-      console.log('Creating user:', user);
       const response = await fetch(`${API_BASE}/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -108,7 +103,7 @@ export const api = {
     }
   },
   
-  createTransaction: async (transaction: { buyer: string; participants: string[]; description?: string; priceOverrides?: Record<string, number> }) => {
+  createTransaction: async (transaction: { buyer: string; participants: string[]; description?: string; priceOverrides?: Record<string, number>; freeCoffees?: string[] }) => {
     try {
       const response = await fetch(`${API_BASE}/transactions`, {
         method: 'POST',
@@ -248,6 +243,61 @@ export const api = {
       return response.json();
     } catch (error) {
       console.error('adminDeleteUser error:', error);
+      throw error;
+    }
+  },
+
+  adminEditUser: async (id: string, pin: string, data: Record<string, any>) => {
+    try {
+      const response = await fetch(`${API_BASE}/admin/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-pin': pin },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
+      return response.json();
+    } catch (error) {
+      console.error('adminEditUser error:', error);
+      throw error;
+    }
+  },
+
+  adminEditTransaction: async (id: string, pin: string, data: Record<string, any>) => {
+    try {
+      const response = await fetch(`${API_BASE}/admin/transactions/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-pin': pin },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
+      return response.json();
+    } catch (error) {
+      console.error('adminEditTransaction error:', error);
+      throw error;
+    }
+  },
+
+  adminGetLogs: async (pin: string) => {
+    try {
+      const response = await fetch(`${API_BASE}/admin/logs`, {
+        headers: { 'x-admin-pin': pin },
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response status:', response.status, 'Body:', text);
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
+      return response.json();
+    } catch (error) {
+      console.error('adminGetLogs error:', error);
       throw error;
     }
   },

@@ -35,7 +35,7 @@ router.get('/:id', async (req, res) => {
 // Create transaction
 router.post('/', async (req, res) => {
   try {
-    const { buyer, participants, description, priceOverrides } = req.body;
+    const { buyer, participants, description, priceOverrides, freeCoffees } = req.body;
 
     // Get buyer and participants with their coffee prices
     const buyerUser = await User.findById(buyer);
@@ -45,14 +45,33 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid buyer or participants' });
     }
 
+    const freeCoffeeList: string[] = freeCoffees || [];
+
     // Calculate total cost and per-participant prices based on coffee price or override
     let totalCost = 0;
-    const participantPrices: { user: string; price: number }[] = [];
+    const participantPrices: { user: string; price: number; isFreeCoffee: boolean; freeCoffeeValue: number }[] = [];
     participantUsers.forEach(user => {
-      const override = priceOverrides?.[user._id.toString()];
-      const price = override !== undefined ? override : user.coffeePrice;
-      totalCost += price;
-      participantPrices.push({ user: user._id.toString(), price });
+      const isFree = freeCoffeeList.includes(user._id.toString());
+      if (isFree) {
+        // Free coffee: buyer doesn't pay, but we record the value
+        participantPrices.push({
+          user: user._id.toString(),
+          price: 0,
+          isFreeCoffee: true,
+          freeCoffeeValue: user.coffeePrice
+        });
+        // totalCost stays unchanged - buyer doesn't pay for this coffee
+      } else {
+        const override = priceOverrides?.[user._id.toString()];
+        const price = override !== undefined ? override : user.coffeePrice;
+        totalCost += price;
+        participantPrices.push({
+          user: user._id.toString(),
+          price,
+          isFreeCoffee: false,
+          freeCoffeeValue: 0
+        });
+      }
     });
 
     const costPerPerson = totalCost / participantUsers.length;
@@ -69,7 +88,7 @@ router.post('/', async (req, res) => {
 
     await transaction.save();
 
-    // Update buyer's balance and times bought
+    // Update buyer's balance and times bought (only for what they actually paid)
     buyerUser.balance += totalCost;
     buyerUser.timesBought += 1;
     await buyerUser.save();
@@ -78,16 +97,26 @@ router.post('/', async (req, res) => {
     for (const user of participantUsers) {
       const pp = participantPrices.find(p => p.user === user._id.toString());
       const individualPrice = pp ? pp.price : costPerPerson;
-      user.balance -= individualPrice;
-      user.coffeesDrank += 1;
-      
-      // Loyalty card logic - every 8th coffee is free
-      user.loyaltyCount += 1;
-      if (user.loyaltyCount === 8) {
-        user.balance += user.coffeePrice; // Credit for free coffee
+      const isFree = pp?.isFreeCoffee ?? false;
+
+      if (isFree) {
+        // Free coffee: don't deduct balance, but record they drank a coffee
+        user.balance -= 0; // No balance deduction
+        user.coffeesDrank += 1;
+        user.freeCoffeesUsed += 1;
+        // Reset loyalty count since they used their free coffee
         user.loyaltyCount = 0;
+      } else {
+        user.balance -= individualPrice;
+        user.coffeesDrank += 1;
+        // Loyalty card logic - every 8th coffee is free
+        user.loyaltyCount += 1;
+        if (user.loyaltyCount === 8) {
+          user.balance += user.coffeePrice; // Credit for free coffee
+          user.loyaltyCount = 0;
+        }
       }
-      
+
       await user.save();
     }
 

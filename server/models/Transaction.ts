@@ -25,6 +25,14 @@ const transactionSchema = new mongoose.Schema({
     price: {
       type: Number,
       required: true
+    },
+    isFreeCoffee: {
+      type: Boolean,
+      default: false
+    },
+    freeCoffeeValue: {
+      type: Number,
+      default: 0
     }
   }],
   totalCost: {

@@ -39,14 +39,19 @@ function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'transactions' | 'history'>('dashboard');
   const [selectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear] = useState(new Date().getFullYear());
-  const [suggestedBuyer, setSuggestedBuyer] = useState<User | null>(null);
   const [historyPeriod, setHistoryPeriod] = useState<'week' | 'month' | 'year'>('month');
+  const [presentToday, setPresentToday] = useState<string[]>([]);
+  const [buyerOverride, setBuyerOverride] = useState<string | null>(null);
 
   // Admin
   const [adminMode, setAdminMode] = useState(false);
   const [adminPinInput, setAdminPinInput] = useState('');
   const [adminPinError, setAdminPinError] = useState(false);
   const [adminUnlocked, setAdminUnlocked] = useState(false);
+  const [adminTab, setAdminTab] = useState<'actions' | 'users' | 'transactions' | 'logs'>('actions');
+  const [adminLogs, setAdminLogs] = useState<any[]>([]);
+  const [adminEditUser, setAdminEditUser] = useState<User | null>(null);
+  const [adminEditTx, setAdminEditTx] = useState<Transaction | null>(null);
   
   // New user form
   const [newUserName, setNewUserName] = useState('');
@@ -68,6 +73,7 @@ function App() {
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [transactionDescription, setTransactionDescription] = useState('');
   const [priceOverrides, setPriceOverrides] = useState<Record<string, number>>({});
+  const [freeCoffees, setFreeCoffees] = useState<string[]>([]);
 
   useEffect(() => {
     loadData();
@@ -75,17 +81,54 @@ function App() {
 
   const loadData = async () => {
     try {
-      const [usersData, transactionsData, suggestedData] = await Promise.all([
+      const [usersData, transactionsData] = await Promise.all([
         api.getUsers(),
-        api.getTransactions(),
-        api.getSuggestedBuyer()
+        api.getTransactions()
       ]);
       setUsers(usersData);
       setTransactions(transactionsData);
-      setSuggestedBuyer(suggestedData.suggestedBuyer);
     } catch (error) {
       console.error('Failed to load data:', error);
     }
+  };
+
+  const togglePresent = (userId: string) => {
+    setPresentToday(prev =>
+      prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+    setBuyerOverride(null);
+  };
+
+  const computeSuggestedBuyer = (): User | null => {
+    if (presentToday.length === 0) return null;
+    const presentUsers = users.filter(u => presentToday.includes(u._id));
+    if (presentUsers.length === 0) return null;
+    const sorted = [...presentUsers].sort((a, b) => {
+      const scoreA = a.balance - (a.timesBought * 10);
+      const scoreB = b.balance - (b.timesBought * 10);
+      return scoreA - scoreB;
+    });
+    return sorted[0];
+  };
+
+  const getEffectiveBuyer = (): User | null => {
+    if (buyerOverride) {
+      return users.find(u => u._id === buyerOverride) || null;
+    }
+    return computeSuggestedBuyer();
+  };
+
+  const proceedToRecord = () => {
+    const buyer = getEffectiveBuyer();
+    if (!buyer) return;
+    setSelectedBuyer(buyer._id);
+    setSelectedParticipants(presentToday);
+    setPriceOverrides({});
+    setFreeCoffees([]);
+    setTransactionDescription('');
+    setActiveTab('transactions');
   };
 
   const handleAddUser = async (e: React.FormEvent) => {
@@ -129,12 +172,14 @@ function App() {
         buyer: selectedBuyer,
         participants: selectedParticipants,
         description: transactionDescription || undefined,
-        priceOverrides: Object.keys(priceOverrides).length > 0 ? priceOverrides : undefined
+        priceOverrides: Object.keys(priceOverrides).length > 0 ? priceOverrides : undefined,
+        freeCoffees: freeCoffees.length > 0 ? freeCoffees : undefined
       });
       setSelectedBuyer('');
       setSelectedParticipants([]);
       setTransactionDescription('');
       setPriceOverrides({});
+      setFreeCoffees([]);
       loadData();
     } catch (error) {
       console.error('Failed to create transaction:', error);
@@ -152,16 +197,37 @@ function App() {
       delete next[userId];
       return next;
     });
+    setFreeCoffees(prev => prev.filter(id => id !== userId));
+  };
+
+  const toggleFreeCoffee = (userId: string) => {
+    setFreeCoffees(prev =>
+      prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+    setPriceOverrides(prev => {
+      const next = { ...prev };
+      delete next[userId];
+      return next;
+    });
   };
 
   const setParticipantPrice = (userId: string, price: number) => {
     setPriceOverrides(prev => ({ ...prev, [userId]: price }));
+    setFreeCoffees(prev => prev.filter(id => id !== userId));
   };
 
   const getEffectivePrice = (userId: string): number => {
+    if (freeCoffees.includes(userId)) return 0;
     const user = users.find(u => u._id === userId);
     if (!user) return 0;
     return priceOverrides[userId] ?? user.coffeePrice;
+  };
+
+  const getAvailableFreeCoffees = (user: User): number => {
+    const earned = Math.floor(user.coffeesDrank / 8);
+    return earned - (user.freeCoffeesUsed || 0);
   };
 
   const toggleAddon = (addonName: string) => {
@@ -282,6 +348,49 @@ function App() {
       alert('Everything has been reset');
     } catch (error) {
       alert('Failed to reset all');
+    }
+  };
+
+  const handleAdminLoadLogs = async () => {
+    try {
+      const logs = await api.adminGetLogs('110125');
+      setAdminLogs(logs);
+    } catch (error) {
+      console.error('Failed to load logs:', error);
+    }
+  };
+
+  const handleAdminEditUser = async (id: string, data: Record<string, any>) => {
+    try {
+      await api.adminEditUser(id, '110125', data);
+      setAdminEditUser(null);
+      loadData();
+      alert('User updated');
+    } catch (error) {
+      console.error('Failed to edit user:', error);
+      alert('Failed to edit user');
+    }
+  };
+
+  const handleAdminEditTransaction = async (id: string, data: Record<string, any>) => {
+    try {
+      await api.adminEditTransaction(id, '110125', data);
+      setAdminEditTx(null);
+      loadData();
+      alert('Transaction updated');
+    } catch (error) {
+      console.error('Failed to edit transaction:', error);
+      alert('Failed to edit transaction');
+    }
+  };
+
+  const handleAdminDeleteUser = async (id: string, name: string) => {
+    if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+    try {
+      await api.adminDeleteUser(id, '110125');
+      loadData();
+    } catch (error) {
+      alert('Failed to delete user');
     }
   };
 
@@ -464,36 +573,133 @@ function App() {
         {/* Dashboard */}
         {activeTab === 'dashboard' && (
           <div className="space-y-3">
-            {/* Suggested Buyer */}
+            {/* Coffee Stats Summary */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
+                  <span className="text-sm">☕</span>
+                </div>
+                <h2 className="text-sm font-semibold text-slate-700">Coffee Stats</h2>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-xl p-3 bg-slate-50 border border-slate-100 text-center">
+                  <p className="text-2xl font-bold text-slate-800">{users.reduce((sum, u) => sum + u.coffeesDrank, 0)}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Total Coffees</p>
+                </div>
+                <div className="rounded-xl p-3 bg-green-50 border border-green-100 text-center">
+                  <p className="text-2xl font-bold text-green-600">{users.reduce((sum, u) => sum + getAvailableFreeCoffees(u), 0)}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Free Available</p>
+                </div>
+                <div className="rounded-xl p-3 bg-amber-50 border border-amber-100 text-center">
+                  <p className="text-2xl font-bold text-amber-600">{users.reduce((sum, u) => sum + (u.freeCoffeesUsed || 0), 0)}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Free Used</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Who's Present Today */}
             <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
                   <span className="text-sm">🎯</span>
                 </div>
-                <h2 className="text-sm font-semibold text-slate-700">Suggested Next Buyer</h2>
+                <h2 className="text-sm font-semibold text-slate-700">Who's Present Today?</h2>
               </div>
-              {suggestedBuyer ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-base">
-                      {suggestedBuyer.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold text-slate-900 leading-tight">{suggestedBuyer.name}</p>
-                      <p className="text-xs text-slate-400">
-                        {suggestedBuyer.coffeePreference} · ${suggestedBuyer.coffeePrice.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-sm font-bold ${getBalanceColor(suggestedBuyer.balance)}`}>
-                      ${suggestedBuyer.balance.toFixed(2)}
-                    </p>
-                    <p className="text-[11px] text-slate-400">{suggestedBuyer.timesBought}x bought</p>
-                  </div>
-                </div>
+              {users.length === 0 ? (
+                <p className="text-slate-400 text-sm py-2">Add team members first</p>
               ) : (
-                <p className="text-slate-400 text-sm py-2">Add team members to get suggestions</p>
+                <>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {users.map((user) => (
+                      <button
+                        key={user._id}
+                        onClick={() => togglePresent(user._id)}
+                        className={`px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                          presentToday.includes(user._id)
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        {user.name}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Buyer Selection */}
+                  {presentToday.length > 0 && (() => {
+                    const suggested = computeSuggestedBuyer();
+                    const effective = getEffectiveBuyer();
+                    if (!suggested || !effective) return null;
+                    const presentUsers = users.filter(u => presentToday.includes(u._id));
+                    const isOverridden = buyerOverride !== null && buyerOverride !== suggested._id;
+                    return (
+                      <div className="space-y-3">
+                        {/* Effective Buyer Card */}
+                        <div className={`rounded-xl p-4 border transition-all ${
+                          isOverridden
+                            ? 'bg-blue-50 border-blue-100'
+                            : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100'
+                        }`}>
+                          <p className="text-xs text-slate-500 mb-2">
+                            {isOverridden ? 'Override: selected buyer' : 'Suggested buyer from those present'}
+                          </p>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-base ${
+                                isOverridden
+                                  ? 'bg-gradient-to-br from-blue-400 to-indigo-500'
+                                  : 'bg-gradient-to-br from-amber-400 to-orange-500'
+                              }`}>
+                                {effective.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="text-lg font-bold text-slate-900 leading-tight">{effective.name}</p>
+                                <p className="text-xs text-slate-400">
+                                  {effective.coffeePreference} · ${effective.coffeePrice.toFixed(2)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className={`text-sm font-bold ${getBalanceColor(effective.balance)}`}>
+                                ${effective.balance.toFixed(2)}
+                              </p>
+                              <p className="text-[11px] text-slate-400">{effective.timesBought}x bought</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Override selector */}
+                        <div>
+                          <p className="text-xs text-slate-400 mb-2">Or pick a different buyer from those present:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {presentUsers.map((user) => (
+                              <button
+                                key={user._id}
+                                onClick={() => setBuyerOverride(user._id)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                  effective._id === user._id
+                                    ? (isOverridden ? 'bg-blue-500 text-white' : 'bg-amber-500 text-white')
+                                    : 'bg-slate-100 text-slate-500'
+                                }`}
+                              >
+                                {user.name}
+                                {user._id === suggested._id && !isOverridden && ' ✓'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Proceed button */}
+                        <button
+                          onClick={proceedToRecord}
+                          className="w-full bg-slate-900 text-white py-3 rounded-xl active:bg-slate-800 transition-all font-semibold text-sm shadow-sm"
+                        >
+                          Record Transaction with {effective.name} →
+                        </button>
+                      </div>
+                    );
+                  })()}
+                </>
               )}
             </div>
 
@@ -527,14 +733,11 @@ function App() {
                       <p className={`text-sm font-bold ${getBalanceColor(user.balance)}`}>
                         ${user.balance.toFixed(2)}
                       </p>
-                      <p className="text-[11px] text-slate-400">{user.timesBought}B · {user.coffeesDrank}D</p>
-                      {user.loyaltyCount > 0 && (
-                        <div className="mt-1 flex items-center gap-1 justify-end">
-                          <div className="w-12 h-1 bg-slate-200 rounded-full overflow-hidden">
-                            <div className="h-full bg-amber-500 rounded-full" style={{ width: `${(user.loyaltyCount / 8) * 100}%` }} />
-                          </div>
-                          <span className="text-[10px] text-amber-500 font-medium">{user.loyaltyCount}/8</span>
-                        </div>
+                      <p className="text-[11px] text-slate-400">{user.coffeesDrank} coffees · {user.freeCoffeesUsed || 0} free used</p>
+                      {getAvailableFreeCoffees(user) > 0 && (
+                        <p className="text-[11px] text-green-600 font-semibold mt-0.5">
+                          🎟️ {getAvailableFreeCoffees(user)} free available
+                        </p>
                       )}
                     </div>
                   </div>
@@ -836,26 +1039,51 @@ function App() {
                       const user = users.find(u => u._id === userId);
                       if (!user) return null;
                       const isOverridden = priceOverrides[userId] !== undefined;
+                      const isFreeCoffee = freeCoffees.includes(userId);
+                      const availableFree = getAvailableFreeCoffees(user);
+                      const canUseFree = availableFree > 0 || isFreeCoffee;
                       return (
-                        <div key={userId} className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                        <div key={userId} className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all ${
+                          isFreeCoffee ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-100'
+                        }`}>
                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-600 font-bold text-xs shrink-0">
                             {user.name.charAt(0).toUpperCase()}
                           </div>
                           <span className="text-sm font-medium text-slate-700 flex-1 min-w-0 truncate">{user.name}</span>
                           <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-xs text-slate-400">$</span>
-                            <input
-                              type="number"
-                              step="0.10"
-                              min="0"
-                              value={getEffectivePrice(userId).toFixed(2)}
-                              onChange={(e) => setParticipantPrice(userId, parseFloat(e.target.value) || 0)}
-                              className={`w-20 px-2 py-1.5 text-sm rounded-lg border text-right transition-all ${
-                                isOverridden
-                                  ? 'border-amber-400 bg-amber-50 font-semibold text-slate-900'
-                                  : 'border-slate-200 bg-white text-slate-600'
-                              } focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500`}
-                            />
+                            {canUseFree && (
+                              <button
+                                type="button"
+                                onClick={() => toggleFreeCoffee(userId)}
+                                className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                  isFreeCoffee
+                                    ? 'bg-green-500 text-white'
+                                    : 'bg-green-100 text-green-600 active:bg-green-200'
+                                }`}
+                                title={`${availableFree} free coffee${availableFree !== 1 ? 's' : ''} available`}
+                              >
+                                🎟️ {availableFree} free
+                              </button>
+                            )}
+                            {isFreeCoffee ? (
+                              <span className="text-sm font-semibold text-green-600 w-20 text-right">FREE</span>
+                            ) : (
+                              <>
+                                <span className="text-xs text-slate-400">$</span>
+                                <input
+                                  type="number"
+                                  step="0.10"
+                                  min="0"
+                                  value={getEffectivePrice(userId).toFixed(2)}
+                                  onChange={(e) => setParticipantPrice(userId, parseFloat(e.target.value) || 0)}
+                                  className={`w-20 px-2 py-1.5 text-sm rounded-lg border text-right transition-all ${
+                                    isOverridden
+                                      ? 'border-amber-400 bg-amber-50 font-semibold text-slate-900'
+                                      : 'border-slate-200 bg-white text-slate-600'
+                                  } focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500`}
+                                />
+                              </>
+                            )}
                           </div>
                         </div>
                       );
@@ -885,9 +1113,10 @@ function App() {
                       if (!user) return null;
                       const effectivePrice = getEffectivePrice(userId);
                       const isOverridden = priceOverrides[userId] !== undefined;
+                      const isFreeCoffee = freeCoffees.includes(userId);
                       return (
                         <div key={userId} className="flex justify-between text-slate-600">
-                          <span>{user.name} {isOverridden && <span className="text-amber-500 text-xs">✏️</span>}</span>
+                          <span>{user.name} {isOverridden && !isFreeCoffee && <span className="text-amber-500 text-xs">✏️</span>} {isFreeCoffee && <span className="text-green-500 text-xs">🎟️ Free</span>}</span>
                           <span className="font-medium">${effectivePrice.toFixed(2)}</span>
                         </div>
                       );
@@ -1285,68 +1514,269 @@ function App() {
               </form>
             ) : (
               <div className="space-y-3">
-                {/* Admin Actions */}
-                <div className="rounded-xl p-4 bg-rose-50 border border-rose-100">
-                  <h3 className="text-xs font-semibold text-rose-600 mb-3">Danger Zone</h3>
-                  <div className="space-y-2">
+                {/* Admin Tabs */}
+                <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
+                  {(['actions', 'users', 'transactions', 'logs'] as const).map(tab => (
                     <button
-                      onClick={handleAdminClearTransactions}
-                      className="w-full bg-white text-rose-600 py-2.5 rounded-xl active:bg-rose-50 transition-all font-medium text-sm border border-rose-200"
+                      key={tab}
+                      onClick={() => {
+                        setAdminTab(tab);
+                        if (tab === 'logs') handleAdminLoadLogs();
+                      }}
+                      className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-all ${
+                        adminTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'
+                      }`}
                     >
-                      🗑️ Clear All Transactions
+                      {tab}
                     </button>
-                    <button
-                      onClick={handleAdminResetBalances}
-                      className="w-full bg-white text-rose-600 py-2.5 rounded-xl active:bg-rose-50 transition-all font-medium text-sm border border-rose-200"
-                    >
-                      💰 Reset All Balances to 0
-                    </button>
-                    <button
-                      onClick={handleAdminResetAll}
-                      className="w-full bg-rose-600 text-white py-2.5 rounded-xl active:bg-rose-700 transition-all font-semibold text-sm"
-                    >
-                      ☢️ Reset Everything (Nuke)
-                    </button>
-                  </div>
+                  ))}
                 </div>
 
-                {/* Transaction Management */}
-                <div className="rounded-xl p-4 bg-slate-50 border border-slate-100">
-                  <h3 className="text-xs font-semibold text-slate-500 mb-3">Manage Transactions</h3>
-                  {transactions.length === 0 ? (
-                    <p className="text-slate-400 text-sm text-center py-2">No transactions</p>
-                  ) : (
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                      {transactions.map(t => (
-                        <div key={t._id} className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-slate-100">
+                {/* Actions Tab */}
+                {adminTab === 'actions' && (
+                  <div className="rounded-xl p-4 bg-rose-50 border border-rose-100">
+                    <h3 className="text-xs font-semibold text-rose-600 mb-3">Danger Zone</h3>
+                    <div className="space-y-2">
+                      <button
+                        onClick={handleAdminClearTransactions}
+                        className="w-full bg-white text-rose-600 py-2.5 rounded-xl active:bg-rose-50 transition-all font-medium text-sm border border-rose-200"
+                      >
+                        🗑️ Clear All Transactions
+                      </button>
+                      <button
+                        onClick={handleAdminResetBalances}
+                        className="w-full bg-white text-rose-600 py-2.5 rounded-xl active:bg-rose-50 transition-all font-medium text-sm border border-rose-200"
+                      >
+                        💰 Reset All Balances to 0
+                      </button>
+                      <button
+                        onClick={handleAdminResetAll}
+                        className="w-full bg-rose-600 text-white py-2.5 rounded-xl active:bg-rose-700 transition-all font-semibold text-sm"
+                      >
+                        ☢️ Reset Everything (Nuke)
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Users Tab */}
+                {adminTab === 'users' && (
+                  <div className="space-y-2">
+                    {users.length === 0 ? (
+                      <p className="text-slate-400 text-sm text-center py-4">No users</p>
+                    ) : (
+                      users.map(user => (
+                        <div key={user._id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-medium text-slate-700 truncate">
-                              {t.buyer.name} → {t.participants.map(p => p.name).join(', ')}
-                            </p>
+                            <p className="text-xs font-medium text-slate-700 truncate">{user.name}</p>
                             <p className="text-[11px] text-slate-400">
-                              {new Date(t.date).toLocaleDateString()} · ${t.totalCost.toFixed(2)}
+                              {user.coffeePreference} · ${user.coffeePrice.toFixed(2)} · Bal: ${user.balance.toFixed(2)}
                             </p>
                           </div>
-                          <button
-                            onClick={() => handleAdminDeleteTransaction(t._id)}
-                            className="text-rose-400 active:text-rose-600 text-xs font-medium shrink-0 ml-2"
-                          >
-                            Delete
-                          </button>
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            <button
+                              onClick={() => setAdminEditUser(user)}
+                              className="text-slate-500 active:text-slate-700 text-xs font-medium"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleAdminDeleteUser(user._id, user.name)}
+                              className="text-rose-400 active:text-rose-600 text-xs font-medium"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* Transactions Tab */}
+                {adminTab === 'transactions' && (
+                  <div className="space-y-2">
+                    {transactions.length === 0 ? (
+                      <p className="text-slate-400 text-sm text-center py-4">No transactions</p>
+                    ) : (
+                      <div className="max-h-[400px] overflow-y-auto space-y-2">
+                        {transactions.map(t => (
+                          <div key={t._id} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-medium text-slate-700 truncate">
+                                {t.buyer.name} → {t.participants.map((p: any) => p.name).join(', ')}
+                              </p>
+                              <p className="text-[11px] text-slate-400">
+                                {new Date(t.date).toLocaleDateString()} · ${t.totalCost.toFixed(2)} · {t.description}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0 ml-2">
+                              <button
+                                onClick={() => setAdminEditTx(t)}
+                                className="text-slate-500 active:text-slate-700 text-xs font-medium"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleAdminDeleteTransaction(t._id)}
+                                className="text-rose-400 active:text-rose-600 text-xs font-medium"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Logs Tab */}
+                {adminTab === 'logs' && (
+                  <div className="space-y-2">
+                    {adminLogs.length === 0 ? (
+                      <p className="text-slate-400 text-sm text-center py-4">No logs yet</p>
+                    ) : (
+                      <div className="max-h-[400px] overflow-y-auto space-y-2">
+                        {adminLogs.map((log: any) => (
+                          <div key={log._id} className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                log.action.startsWith('DELETE') ? 'bg-rose-100 text-rose-600' :
+                                log.action.startsWith('EDIT') ? 'bg-blue-100 text-blue-600' :
+                                log.action.startsWith('RESET') || log.action.startsWith('CLEAR') ? 'bg-amber-100 text-amber-600' :
+                                'bg-slate-100 text-slate-500'
+                              }`}>
+                                {log.action.replace(/_/g, ' ')}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {new Date(log.timestamp).toLocaleString()}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-700">{log.description}</p>
+                            {log.details?.before && log.details?.after && (
+                              <p className="text-[10px] text-slate-400 mt-1">
+                                Changed from: {JSON.stringify(log.details.before)} → {JSON.stringify(log.details.after)}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <button
-                  onClick={() => { setAdminMode(false); setAdminUnlocked(false); setAdminPinInput(''); }}
+                  onClick={() => { setAdminMode(false); setAdminUnlocked(false); setAdminPinInput(''); setAdminTab('actions'); }}
                   className="w-full bg-slate-100 text-slate-600 py-2.5 rounded-xl active:bg-slate-200 transition-all font-medium text-sm"
                 >
                   Exit Admin
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Admin Edit User Modal */}
+      {adminEditUser && (
+        <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm flex items-end justify-center" onClick={() => setAdminEditUser(null)}>
+          <div className="bg-white w-full max-w-[430px] rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-slate-700">Edit User (Admin)</h2>
+              <button onClick={() => setAdminEditUser(null)} className="text-slate-400 text-lg leading-none">×</button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const form = e.target as HTMLFormElement;
+              const formData = new FormData(form);
+              handleAdminEditUser(adminEditUser._id, {
+                name: formData.get('name'),
+                coffeePreference: formData.get('coffeePreference'),
+                coffeePrice: parseFloat(formData.get('coffeePrice') as string) || 0,
+                balance: parseFloat(formData.get('balance') as string) || 0,
+                timesBought: parseInt(formData.get('timesBought') as string) || 0,
+                coffeesDrank: parseInt(formData.get('coffeesDrank') as string) || 0,
+                loyaltyCount: parseInt(formData.get('loyaltyCount') as string) || 0,
+                freeCoffeesUsed: parseInt(formData.get('freeCoffeesUsed') as string) || 0,
+              });
+            }} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Name</label>
+                <input name="name" type="text" defaultValue={adminEditUser.name} className="w-full px-3 py-2.5 text-base bg-slate-50 border border-slate-200 rounded-xl" required />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Coffee Preference</label>
+                <input name="coffeePreference" type="text" defaultValue={adminEditUser.coffeePreference} className="w-full px-3 py-2.5 text-base bg-slate-50 border border-slate-200 rounded-xl" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Coffee Price</label>
+                  <input name="coffeePrice" type="number" step="0.10" defaultValue={adminEditUser.coffeePrice} className="w-full px-3 py-2.5 text-base bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Balance</label>
+                  <input name="balance" type="number" step="0.01" defaultValue={adminEditUser.balance} className="w-full px-3 py-2.5 text-base bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Times Bought</label>
+                  <input name="timesBought" type="number" defaultValue={adminEditUser.timesBought} className="w-full px-3 py-2.5 text-base bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Coffees Drank</label>
+                  <input name="coffeesDrank" type="number" defaultValue={adminEditUser.coffeesDrank} className="w-full px-3 py-2.5 text-base bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Loyalty Count</label>
+                  <input name="loyaltyCount" type="number" defaultValue={adminEditUser.loyaltyCount} className="w-full px-3 py-2.5 text-base bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Free Coffees Used</label>
+                  <input name="freeCoffeesUsed" type="number" defaultValue={adminEditUser.freeCoffeesUsed || 0} className="w-full px-3 py-2.5 text-base bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+              </div>
+              <button type="submit" className="w-full bg-slate-900 text-white py-3 rounded-xl font-semibold text-sm">
+                Save Changes (Logged)
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Edit Transaction Modal */}
+      {adminEditTx && (
+        <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm flex items-end justify-center" onClick={() => setAdminEditTx(null)}>
+          <div className="bg-white w-full max-w-[430px] rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-slate-700">Edit Transaction (Admin)</h2>
+              <button onClick={() => setAdminEditTx(null)} className="text-slate-400 text-lg leading-none">×</button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const form = e.target as HTMLFormElement;
+              const formData = new FormData(form);
+              handleAdminEditTransaction(adminEditTx._id, {
+                description: formData.get('description') as string,
+                totalCost: parseFloat(formData.get('totalCost') as string) || 0,
+              });
+            }} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Description</label>
+                <input name="description" type="text" defaultValue={adminEditTx.description} className="w-full px-3 py-2.5 text-base bg-slate-50 border border-slate-200 rounded-xl" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Total Cost</label>
+                <input name="totalCost" type="number" step="0.01" defaultValue={adminEditTx.totalCost} className="w-full px-3 py-2.5 text-base bg-slate-50 border border-slate-200 rounded-xl" />
+              </div>
+              <div className="rounded-xl p-3 bg-slate-50 border border-slate-100">
+                <p className="text-xs text-slate-400 mb-1">Buyer: {adminEditTx.buyer.name}</p>
+                <p className="text-xs text-slate-400">Participants: {adminEditTx.participants.map((p: any) => p.name).join(', ')}</p>
+              </div>
+              <p className="text-[11px] text-slate-400">Changing total cost will reverse and re-apply balance changes. This action will be logged.</p>
+              <button type="submit" className="w-full bg-slate-900 text-white py-3 rounded-xl font-semibold text-sm">
+                Save Changes (Logged)
+              </button>
+            </form>
           </div>
         </div>
       )}

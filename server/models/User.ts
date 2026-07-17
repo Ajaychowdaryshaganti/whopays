@@ -32,6 +32,10 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  freeCoffeesUsed: {
+    type: Number,
+    default: 0
+  },
   addons: {
     type: [String],
     default: []
