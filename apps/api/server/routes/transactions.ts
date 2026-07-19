@@ -45,14 +45,11 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid buyer or participants' });
     }
 
-    if (participantUsers.length < 2) {
-      return res.status(400).json({ error: 'At least 2 members are required to record a transaction' });
-    }
-
     const freeCoffeeList: string[] = freeCoffees || [];
 
     // Calculate total cost and per-participant prices based on coffee price or override
     let totalCost = 0;
+    let totalFreeValue = 0;
     const participantPrices: { user: string; price: number; isFreeCoffee: boolean; freeCoffeeValue: number }[] = [];
     participantUsers.forEach(user => {
       const isFree = freeCoffeeList.includes(user._id.toString());
@@ -64,7 +61,7 @@ router.post('/', async (req, res) => {
           isFreeCoffee: true,
           freeCoffeeValue: user.coffeePrice
         });
-        // totalCost stays unchanged - buyer doesn't pay for this coffee
+        totalFreeValue += user.coffeePrice;
       } else {
         const override = priceOverrides?.[user._id.toString()];
         const price = override !== undefined ? override : user.coffeePrice;
@@ -80,6 +77,9 @@ router.post('/', async (req, res) => {
 
     const costPerPerson = totalCost / participantUsers.length;
 
+    // totalValue includes both paid and free coffees (consumption value)
+    const totalValue = totalCost + totalFreeValue;
+
     // Create transaction
     const transaction = new Transaction({
       buyer,
@@ -87,6 +87,7 @@ router.post('/', async (req, res) => {
       participantPrices,
       totalCost,
       costPerPerson,
+      totalValue,
       description: description || 'Coffee run'
     });
 
@@ -106,7 +107,11 @@ router.post('/', async (req, res) => {
       // Skip balance deduction for the buyer (they already got credited for totalCost)
       if (user._id.toString() === buyer) {
         if (isFree) {
-          // Buyer used their own free coffee: don't increment coffeesDrank, track free usage
+          // Buyer used their own free coffee:
+          // - Count it as consumption
+          // - Track that they used a free coffee
+          // - Reset loyaltyCount (they consumed a free coffee)
+          user.coffeesDrank += 1;
           user.freeCoffeesUsed += 1;
           user.loyaltyCount = 0;
         } else {
@@ -119,13 +124,18 @@ router.post('/', async (req, res) => {
             user.loyaltyCount = 0;
           }
         }
+        await user.save();
       } else if (isFree) {
-        // Free coffee: don't deduct balance, don't increment coffeesDrank
-        user.balance -= 0; // No balance deduction
+        // Free coffee for a non-buyer participant:
+        // - Do NOT deduct balance (they didn't spend)
+        // - Count as consumption
+        // - Track free usage and reset loyalty
         user.freeCoffeesUsed += 1;
-        // Reset loyalty count since they used their free coffee
+        user.coffeesDrank += 1;
         user.loyaltyCount = 0;
+        await user.save();
       } else {
+        // Normal paid participant
         user.balance -= individualPrice;
         user.coffeesDrank += 1;
         // Loyalty card logic - every 8th coffee is free
@@ -135,9 +145,8 @@ router.post('/', async (req, res) => {
           user.earnedFreeCoffees += 1; // Track earned free coffee
           user.loyaltyCount = 0;
         }
+        await user.save();
       }
-
-      await user.save();
     }
 
     const savedTransaction = await Transaction.findById(transaction._id)
@@ -174,7 +183,8 @@ router.get('/summary/monthly', async (req, res) => {
       month,
       year,
       totalTransactions: transactions.length,
-      totalSpent: transactions.reduce((sum, t) => sum + t.totalCost, 0),
+      totalPaid: transactions.reduce((sum, t) => sum + t.totalCost, 0),
+      totalValue: transactions.reduce((sum, t) => sum + (t.totalValue || t.totalCost), 0), // fallback
       transactions
     };
 

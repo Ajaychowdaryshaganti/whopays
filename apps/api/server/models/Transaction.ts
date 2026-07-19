@@ -43,6 +43,11 @@ const transactionSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  // totalValue includes both paid and free coffees' value
+  totalValue: {
+    type: Number,
+    required: true
+  },
   description: {
     type: String,
     default: 'Coffee run'
